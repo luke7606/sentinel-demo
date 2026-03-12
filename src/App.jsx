@@ -81,7 +81,7 @@ async function parseFile(file) {
           if (bytes[i] > 31 && bytes[i] < 127) text += String.fromCharCode(bytes[i]);
         }
         const readable = (text.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ\s,.:;!?()]{8,}/g) || []).join(" ");
-        resolve({ name, content: `[PDF: ${name}]\n${readable.slice(0, 20000)}`, type: "pdf" });
+        resolve({ name, content: `[PDF: ${name}]\n${readable.slice(0, 1500)}`, type: "pdf" });
       };
       reader.readAsArrayBuffer(file);
     } else {
