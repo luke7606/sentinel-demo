@@ -3,11 +3,12 @@ import { useState, useRef, useEffect, useCallback } from "react";
 // ══════════════════════════════════════════════════
 // GROQ API — 100% GRATUITO, sin tarjeta de crédito
 // Obtené tu key en: https://console.groq.com
-// Modelo: llama-3.3-70b-versatile (gratis)
+// Modelo: llama-3.1-8b-instant (gratis)
 // Límite free tier: ~500k tokens/día
 // ══════════════════════════════════════════════════
 
 async function callGroq({ apiKey, system, messages, maxTokens = 900 }) {
+  const recentMessages = messages.slice(-4);
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -15,7 +16,7 @@ async function callGroq({ apiKey, system, messages, maxTokens = 900 }) {
       "Authorization": `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "llama-3.1-8b-instant",
       max_tokens: maxTokens,
       temperature: 0.2,
       messages: [
@@ -374,7 +375,7 @@ ${docs ? `DOCUMENTACIÓN DEL PROYECTO:\n${docs}` : "No hay documentación cargad
           </div>
           <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6 }}>
             Sin tarjeta de crédito · Sin límite de tiempo · 500k tokens/día
-            <br/>Modelo: <code style={{ color: "#7dd3fc" }}>llama-3.3-70b-versatile</code> (top open-source)
+            <br/>Modelo: <code style={{ color: "#7dd3fc" }}>llama-3.1-8b-instant</code> (top open-source)
           </div>
         </div>
 
@@ -813,7 +814,7 @@ ${docs ? `DOCUMENTACIÓN DEL PROYECTO:\n${docs}` : "No hay documentación cargad
             <div style={S.section}>
               <div style={S.sectionTitle}>API en uso</div>
               <div style={{ padding: 14, background: "#0f2240", border: "1px solid #1d4ed8", borderRadius: 10, fontSize: 13, color: "#93c5fd" }}>
-                <strong>Groq Cloud</strong> · llama-3.3-70b-versatile · Free tier activo<br/>
+                <strong>Groq Cloud</strong> · llama-3.1-8b-instant · Free tier activo<br/>
                 <span style={{ fontSize: 11, color: "#60a5fa" }}>~500k tokens/día · Sin cargo · Sin tarjeta</span>
               </div>
             </div>
