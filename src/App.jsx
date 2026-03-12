@@ -139,7 +139,7 @@ function Dots() {
 // ══════════════════════════════════════════════════
 export default function Sentinel() {
   // ── STATE ────────────────────────────────────────
-  const [groqKey, setGroqKey]         = useState("");
+  const [groqKey, setGroqKey] = useState(import.meta.env.VITE_GROQ_KEY || "");
   const [keyInput, setKeyInput]       = useState("");
   const [keyError, setKeyError]       = useState("");
   const [keyTesting, setKeyTesting]   = useState(false);
