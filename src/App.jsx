@@ -19,20 +19,46 @@ async function parseFile(file) {
     const reader = new FileReader();
     const name = file.name;
     const ext = name.split(".").pop().toLowerCase();
+
     if (["txt","md","js","ts","py","json","yaml","yml","html","css","sql","csv"].includes(ext)) {
       reader.onload = e => resolve({ name, content: e.target.result.slice(0, 30000), type: ext === "csv" ? "csv" : "text" });
       reader.readAsText(file);
+
     } else if (ext === "pdf") {
       reader.onload = e => {
         const bytes = new Uint8Array(e.target.result);
         let t = "";
         for (let i = 0; i < bytes.length; i++) if (bytes[i] > 31 && bytes[i] < 127) t += String.fromCharCode(bytes[i]);
-        const readable = (t.match(/[a-zA-Z0-9áéíóú\s,.:;!?()\-]{8,}/g) || []).join(" ");
-        resolve({ name, content: `[PDF: ${name}]\n${readable.slice(0, 2000)}`, type: "pdf" });
+        const readable = (t.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ0-9\s,.:;!?()\-$%@#]{6,}/g) || []).join(" ");
+        resolve({ name, content: `[PDF: ${name}]\n${readable.slice(0, 8000)}`, type: "pdf" });
       };
       reader.readAsArrayBuffer(file);
+
+    } else if (["docx","xlsx","pptx"].includes(ext)) {
+      // Extract text from Office XML (ZIP-based formats)
+      reader.onload = async e => {
+        try {
+          const bytes = new Uint8Array(e.target.result);
+          // Convert to string and extract text between XML tags
+          let raw = "";
+          for (let i = 0; i < Math.min(bytes.length, 500000); i++) {
+            if (bytes[i] > 31 && bytes[i] < 127) raw += String.fromCharCode(bytes[i]);
+          }
+          // Extract readable text from w:t tags (Word XML) and similar
+          const wtMatches = raw.match(/<w:t[^>]*>([^<]{2,})<\/w:t>/g) || [];
+          const textFromTags = wtMatches.map(m => m.replace(/<[^>]+>/g, "")).join(" ");
+          // Also grab long readable sequences as fallback
+          const fallback = (raw.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ0-9\s,.:;!?()\-$%@#]{8,}/g) || []).join(" ");
+          const combined = textFromTags.length > 200 ? textFromTags : fallback;
+          resolve({ name, content: `[${ext.toUpperCase()}: ${name}]\n${combined.slice(0, 10000)}`, type: "text" });
+        } catch {
+          resolve({ name, content: `[${ext.toUpperCase()}: ${name}] - Could not extract text`, type: "other" });
+        }
+      };
+      reader.readAsArrayBuffer(file);
+
     } else {
-      reader.onload = e => resolve({ name, content: String(e.target.result || "").slice(0, 5000), type: "other" });
+      reader.onload = e => resolve({ name, content: String(e.target.result || "").slice(0, 10000), type: "other" });
       reader.readAsText(file);
     }
   });
@@ -178,7 +204,7 @@ const LANG = {
     recentActivity:"Actividad reciente", askAI:"Preguntarle a la IA →",
     newChat:"Nuevo chat", docsIndexed:"docs indexados", turns:"turnos",
     escalatedWarning:"Caso escalado — revisá la sección Tickets",
-    chatPlaceholder:(ctx)=>`Preguntá sobre ${ctx}... (Enter para enviar)`,
+    chatPlaceholder:(ctx)=>`Preguntá sobre ${ctx === "all projects" ? "todos los proyectos" : ctx}... (Enter para enviar)`,
     chatRestart:"Chat reiniciado. ¿En qué puedo ayudarte?",
     dataSourcesTitle:"Fuentes de Datos", dataSourcesSub:"Conectá herramientas y subí documentos para potenciar las respuestas de IA",
     projectLabel:"Proyecto:", connectBtn2:"Conectar →", comingSoon:"Próximamente",
@@ -287,9 +313,14 @@ const I = {
   Grid:    ()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>,
 };
 
-function MD({text}) {
-  const html = String(text||"").replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>").replace(/`([^`]+)`/g,`<code style="background:#1e293b;padding:1px 5px;border-radius:3px;font-size:11px;color:#7dd3fc">$1</code>`).replace(/^(\d+)\. (.+)$/gm,`<div style="margin:3px 0;padding-left:6px">$1. $2</div>`).replace(/^- (.+)$/gm,`<div style="margin:2px 0;padding-left:6px">• $1</div>`).replace(/\n/g,"<br/>");
-  return <span dangerouslySetInnerHTML={{__html:html}}/>;
+function MD({text, color}) {
+  const html = String(text||"")
+    .replace(/\*\*(.+?)\*\*/g,"<strong>$1<\/strong>")
+    .replace(/`([^`]+)`/g,`<code style="background:rgba(0,0,0,0.3);padding:1px 5px;border-radius:3px;font-size:11px;color:#7dd3fc;font-family:monospace">$1<\/code>`)
+    .replace(/^(\d+)\. (.+)$/gm,`<div style="margin:3px 0;padding-left:6px">$1. $2<\/div>`)
+    .replace(/^- (.+)$/gm,`<div style="margin:2px 0;padding-left:6px">• $1<\/div>`)
+    .replace(/\n/g,"<br/>");
+  return <span style={{color: color||"inherit", display:"block"}} dangerouslySetInnerHTML={{__html:html}}/>;
 }
 function Dots() {
   return <span style={{display:"flex",gap:4,alignItems:"center"}}><style>{`@keyframes bl{0%,80%,100%{opacity:.15;transform:scale(.7)}40%{opacity:1;transform:scale(1)}}`}</style>{[0,1,2].map(i=><span key={i} style={{width:6,height:6,borderRadius:"50%",background:"#818cf8",display:"inline-block",animation:`bl 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}</span>;
@@ -757,7 +788,7 @@ export default function Sentinel() {
               {messages.map((m,i)=>(
                 <div key={i} style={{display:"flex",justifyContent:m.role==="user"?"flex-end":"flex-start",gap:6,alignItems:"flex-end"}}>
                   {m.role==="assistant"&&<div style={{width:26,height:26,borderRadius:"50%",background:m.escalated?"#7f1d1d":"#312e81",display:"flex",alignItems:"center",justifyContent:"center",color:"white",flexShrink:0}}>{m.escalated?<I.Alert/>:<I.Bot/>}</div>}
-                  <div style={{maxWidth:"72%",padding:"9px 13px",borderRadius:12,fontSize:13,lineHeight:1.65,...(m.role==="user"?{background:"#4f46e5",color:"white",borderBottomRightRadius:3}:{background:"#1e293b",color:"#e2e8f0",border:"1px solid #334155",borderBottomLeftRadius:3}),...(m.escalated?{borderColor:"#dc2626"}:{}),...(m.error?{color:"#fca5a5"}:{})}}><MD text={m.content}/></div>
+                  <div style={{maxWidth:"72%",padding:"9px 13px",borderRadius:12,fontSize:13,lineHeight:1.65,...(m.role==="user"?{background:"#4f46e5",color:"white",borderBottomRightRadius:3}:{background:"#1e293b",color:"#e2e8f0",border:"1px solid #334155",borderBottomLeftRadius:3}),...(m.escalated?{borderColor:"#dc2626"}:{}),...(m.error?{color:"#fca5a5"}:{})}}><MD text={m.content} color={m.role==="user"?"white":m.error?"#fca5a5":"#e2e8f0"}/></div>
                   {m.role==="user"&&<div style={{width:26,height:26,borderRadius:"50%",background:"#1e3a5f",display:"flex",alignItems:"center",justifyContent:"center",color:"white",flexShrink:0}}><I.User/></div>}
                 </div>
               ))}
@@ -766,7 +797,7 @@ export default function Sentinel() {
             </div>
             <div style={{padding:"12px 20px",borderTop:"1px solid #1e293b",background:"#0d1526",display:"flex",gap:8}}>
               {escalated?<div style={{flex:1,textAlign:"center",color:"#f87171",fontSize:13,fontWeight:600}}>⚠️ {t.escalatedWarning}</div>:<>
-                <textarea ref={inputRef} rows={2} style={{flex:1,background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"9px 12px",color:"#f1f5f9",fontSize:13,resize:"none",fontFamily:"inherit",outline:"none"}} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={t.chatPlaceholder(user.role==="client"?project?.name:user.role==="admin"?"all projects":getAreaLabel(user.area))}/>
+                <textarea ref={inputRef} rows={2} style={{flex:1,background:"#1e293b",border:"1px solid #334155",borderRadius:10,padding:"9px 12px",color:"#f1f5f9",fontSize:13,resize:"none",fontFamily:"inherit",outline:"none"}} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}}} placeholder={t.chatPlaceholder(user.role==="client"?project?.name:user.role==="admin"?(lang==="es"?"todos los proyectos":"all projects"):getAreaLabel(user.area))}/>
                 <button onClick={send} disabled={loading||!input.trim()} style={{background:"#4f46e5",border:"none",borderRadius:10,padding:"9px 14px",color:"white",cursor:"pointer",display:"flex",alignItems:"center"}}><I.Send/></button>
               </>}
             </div>
