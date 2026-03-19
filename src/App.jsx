@@ -275,7 +275,7 @@ const DEMO_PROJECTS = {
 };
 
 const USERS = {
-  admin:   {id:"admin",   name:"Alex Admin",    role:"admin",    password:"admin123",  avatar:"AA",color:"#6366f1"},
+  admin:   {id:"admin",   name:"Lucas Admin",    role:"admin",    password:"admin123",  avatar:"AA",color:"#6366f1"},
   pm:      {id:"pm",      name:"Sam PM",         role:"internal", area:"pm",      password:"pm123",      avatar:"SP",color:"#8b5cf6"},
   hr:      {id:"hr",      name:"Jordan HR",      role:"internal", area:"hr",      password:"hr123",      avatar:"JH",color:"#f59e0b"},
   finance: {id:"finance", name:"Taylor Finance", role:"internal", area:"finance", password:"finance123", avatar:"TF",color:"#10b981"},
